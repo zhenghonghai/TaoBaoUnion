@@ -17,8 +17,13 @@ import retrofit2.http.HTTP;
 
 public class HomePresenterImpl implements IHomePresenter {
 
+    private IHomeCallback mCallback = null;
+
     @Override
     public void getCategories() {
+        if (mCallback != null) {
+            mCallback.onLoading();
+        }
         Retrofit retrofit = RetrofitManager.getInstance().getRetrofit();
         Api api = retrofit.create(Api.class);
         Call<Categories> task = api.getCategories();
@@ -28,17 +33,30 @@ public class HomePresenterImpl implements IHomePresenter {
                 int code = response.code();
                 LogUtils.d(HomePresenterImpl.this, "result code is " + code);
                 if (code == HttpURLConnection.HTTP_OK) {
+                    // 请求成功
                     Categories categories = response.body();
-                    LogUtils.d(this, categories.toString());
+                    if (mCallback != null) {
+                        if (categories == null || categories.getData().size() == 0) {
+                            mCallback.onEmpty();
+                        } else {
+                            mCallback.onCategoriesLoaded(categories);
+                        }
+                    }
                 } else {
                     // 请求失败
                     LogUtils.i(this, "请求失败...");
+                    if (mCallback != null) {
+                        mCallback.onError();
+                    }
                 }
             }
 
             @Override
             public void onFailure(Call<Categories> call, Throwable t) {
                 LogUtils.e(this, "请求错误..." + t);
+                if (mCallback != null) {
+                    mCallback.onError();
+                }
             }
         });
 
@@ -46,12 +64,12 @@ public class HomePresenterImpl implements IHomePresenter {
     }
 
     @Override
-    public void registerCallback(IHomeCallback callback) {
-
+    public void registerViewCallback(IHomeCallback callback) {
+        this.mCallback = callback;
     }
 
     @Override
-    public void unregisterCallback(IHomeCallback callback) {
-
+    public void unregisterViewCallback(IHomeCallback callback) {
+        this.mCallback = null;
     }
 }

@@ -20,6 +20,7 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import butterknife.Unbinder;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -31,16 +32,25 @@ public class MainActivity extends AppCompatActivity {
     private SelectedFragment mselectedFragment;
     private RedPacketFragment mredPacketFragment;
     private SearchFragment msearchFragment;
+    private Unbinder mbind;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        ButterKnife.bind(this);
+        mbind = ButterKnife.bind(this);
         initFragment();
         switchFragment(mhomeFragment);
         initListener();
 
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (mbind != null) {
+            mbind.unbind();
+        }
     }
 
     private void initFragment() {

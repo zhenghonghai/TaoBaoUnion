@@ -10,6 +10,7 @@ import android.util.Log;
 import android.view.MenuItem;
 
 import com.example.taobaounion.R;
+import com.example.taobaounion.base.BaseActivity;
 import com.example.taobaounion.base.BaseFragment;
 import com.example.taobaounion.ui.fragment.HomeFragment;
 import com.example.taobaounion.ui.fragment.RedPacketFragment;
@@ -22,7 +23,7 @@ import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.Unbinder;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends BaseActivity {
 
     private static final String TAG = "MainActivity";
     @BindView(R.id.main_navigation_bar)
@@ -32,26 +33,30 @@ public class MainActivity extends AppCompatActivity {
     private SelectedFragment mselectedFragment;
     private RedPacketFragment mredPacketFragment;
     private SearchFragment msearchFragment;
-    private Unbinder mbind;
+
+
+    private BaseFragment lastOneFragment = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        mbind = ButterKnife.bind(this);
-        initFragment();
-        switchFragment(mhomeFragment);
-        initListener();
-
     }
 
     @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (mbind != null) {
-            mbind.unbind();
-        }
+    protected void initEvent() {
+        initListener();
     }
+
+    @Override
+    protected void initView() {
+        initFragment();
+    }
+
+    @Override
+    protected int getLayoutResId() {
+        return R.layout.activity_main;
+    }
+
 
     private void initFragment() {
         mhomeFragment = new HomeFragment();
@@ -59,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
         mredPacketFragment = new RedPacketFragment();
         msearchFragment = new SearchFragment();
         mfm = getSupportFragmentManager();
+        switchFragment(mhomeFragment);
     }
 
     private void initListener() {
@@ -78,7 +84,16 @@ public class MainActivity extends AppCompatActivity {
 
     private void switchFragment(BaseFragment targetFragment) {
         FragmentTransaction transaction = mfm.beginTransaction();
-        transaction.replace(R.id.main_page_container, targetFragment);
+        if (lastOneFragment != null) {
+            transaction.hide(lastOneFragment);
+        }
+        if (!targetFragment.isAdded()) {
+            transaction.add(R.id.main_page_container, targetFragment);
+        } else {
+            transaction.show(targetFragment);
+        }
+        lastOneFragment = targetFragment;
+//        transaction.replace(R.id.main_page_container, targetFragment);
         transaction.commit();
     }
 

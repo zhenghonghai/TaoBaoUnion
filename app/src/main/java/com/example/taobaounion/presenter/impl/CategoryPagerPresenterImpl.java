@@ -25,19 +25,7 @@ public class CategoryPagerPresenterImpl implements ICategoryPagerPresenter {
     private List<ICategoryPagerCallback> callbacks = new ArrayList<>();
 
     public static final int DEFAULT_PAGE = 1;
-
-    private CategoryPagerPresenterImpl() {
-
-    }
-
-    private static ICategoryPagerPresenter sInstance = null;
-
-    public static ICategoryPagerPresenter getInstance() {
-        if(sInstance == null) {
-            sInstance = new CategoryPagerPresenterImpl();
-        }
-        return sInstance;
-    }
+    private Integer mCurrentPage;
 
 
     @Override
@@ -48,28 +36,24 @@ public class CategoryPagerPresenterImpl implements ICategoryPagerPresenter {
             }
         }
         // 根据分类id去加载内容
-        //TODO：
-        Retrofit retrofit = RetrofitManager.getInstance().getRetrofit();
-        Api api = retrofit.create(Api.class);
+
         Integer targetPage = pagesInfo.get(categoryId);
         if (targetPage == null) {
             targetPage = DEFAULT_PAGE;
             pagesInfo.put(categoryId, targetPage);
         }
-        String homePagerUrl = UrlUtils.createHomePagerUrl(categoryId, targetPage);
-        Call<HomePagerContent> task = api.getHomePagerContent(homePagerUrl);
+        Call<HomePagerContent> task = createTask(categoryId, targetPage);
         task.enqueue(new Callback<HomePagerContent>() {
             @Override
             public void onResponse(Call<HomePagerContent> call, Response<HomePagerContent> response) {
                 int code = response.code();
-                LogUtils.d(CategoryPagerPresenterImpl.this, "code ---> " + code);
+//                LogUtils.d(CategoryPagerPresenterImpl.this, "code ---> " + code);
                 if (code == HttpURLConnection.HTTP_OK) {
                     HomePagerContent pagerContent = response.body();
-                    LogUtils.d(CategoryPagerPresenterImpl.this, "pagerContent --->" + pagerContent);
+//                    LogUtils.d(CategoryPagerPresenterImpl.this, "pagerContent --->" + pagerContent);
                     // 把数据给到UI更新
-                    handleHomePagerContentResult(pagerContent,categoryId);
+                    handleHomePagerContentResult(pagerContent, categoryId);
                 } else {
-                    //TODO:
                     handleNetworkError(categoryId);
                 }
             }
@@ -82,6 +66,13 @@ public class CategoryPagerPresenterImpl implements ICategoryPagerPresenter {
 
     }
 
+    private Call<HomePagerContent> createTask(int categoryId, Integer targetPage) {
+        Retrofit retrofit = RetrofitManager.getInstance().getRetrofit();
+        Api api = retrofit.create(Api.class);
+        String homePagerUrl = UrlUtils.createHomePagerUrl(categoryId, targetPage);
+        return api.getHomePagerContent(homePagerUrl);
+    }
+
     private void handleNetworkError(int categoryId) {
         for (ICategoryPagerCallback callback : callbacks) {
             if (callback.getCategoryId() == categoryId) {
@@ -92,12 +83,15 @@ public class CategoryPagerPresenterImpl implements ICategoryPagerPresenter {
 
     private void handleHomePagerContentResult(HomePagerContent pagerContent, int categoryId) {
         // 通知UI层更新数据
+        List<HomePagerContent.DataBean> data = pagerContent.getData();
         for (ICategoryPagerCallback callback : callbacks) {
             if (callback.getCategoryId() == categoryId) {
                 if (pagerContent == null || pagerContent.getData().size() == 0) {
                     callback.onEmpty();
                 } else {
-                    callback.onContentLoaded(pagerContent.getData());
+                    List<HomePagerContent.DataBean> looperData = data.subList(data.size() - 5, data.size());
+                    callback.onLooperListLoaded(looperData);
+                    callback.onContentLoaded(data);
                 }
             }
         }
@@ -105,7 +99,58 @@ public class CategoryPagerPresenterImpl implements ICategoryPagerPresenter {
 
     @Override
     public void loaderMore(int categoryId) {
+        //加载更多的数据
+        // 1. 拿到当前页码
+        mCurrentPage = pagesInfo.get(categoryId);
+        if (mCurrentPage == null) {
+            mCurrentPage = 1;
+        }
+        // 2. 页码++
+        mCurrentPage++;
+        // 3. 加载数据
+        Call<HomePagerContent> task = createTask(categoryId, mCurrentPage);
+        // 4. 处理数据结果
+        task.enqueue(new Callback<HomePagerContent>() {
+            @Override
+            public void onResponse(Call<HomePagerContent> call, Response<HomePagerContent> response) {
+                // 结果
+                int code = response.code();
+                LogUtils.d(CategoryPagerPresenterImpl.this, "result code --> " + code);
+                if (code == HttpURLConnection.HTTP_OK) {
+                    HomePagerContent result = response.body();
+                    handleLoaderMoreResult(result, categoryId);
+                }
+            }
 
+            @Override
+            public void onFailure(Call<HomePagerContent> call, Throwable t) {
+                //请求失败
+                LogUtils.d(CategoryPagerPresenterImpl.this, t.toString());
+                handleLoaderMoreError(categoryId);
+            }
+        });
+    }
+
+    private void handleLoaderMoreResult(HomePagerContent result, int categoryId) {
+        for (ICategoryPagerCallback callback : callbacks) {
+            if (callback.getCategoryId() == categoryId) {
+                if (result == null || result.getData().size() == 0) {
+                    callback.onLoaderMoreEmpty();
+                } else {
+                    callback.onLoaderMoreLoaded(result.getData());
+                }
+            }
+        }
+    }
+
+    private void handleLoaderMoreError(int categoryId) {
+        mCurrentPage--;
+        pagesInfo.put(categoryId, mCurrentPage);
+        for (ICategoryPagerCallback callback : callbacks) {
+            if (callback.getCategoryId() == categoryId) {
+                callback.onLoaderMoreError();
+            }
+        }
     }
 
     @Override

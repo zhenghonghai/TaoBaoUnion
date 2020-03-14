@@ -31,7 +31,7 @@ public class HomePresenterImpl implements IHomePresenter {
             @Override
             public void onResponse(Call<Categories> call, Response<Categories> response) {
                 int code = response.code();
-                LogUtils.d(HomePresenterImpl.this, "result code is " + code);
+//                LogUtils.d(HomePresenterImpl.this, "result code is " + code);
                 if (code == HttpURLConnection.HTTP_OK) {
                     // 请求成功
                     Categories categories = response.body();
